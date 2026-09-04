@@ -1,57 +1,75 @@
-# MeritFlow on Render — a web app, a private generator, and a database.
+# MeritFlow on Render — free tier.
 #
 # Apply with Blueprints: New → Blueprint, pointed at this repository. Everything
 # below is created and wired automatically except the values marked
 # `sync: false`, which Render prompts for once.
 #
-# ── Why it is shaped this way ────────────────────────────────────────────────
+# ── Shaped for free instances, and what that costs ───────────────────────────
 #
-# The Python backend is a PRIVATE service. Its /generate-course endpoints have
-# no user accounts and spend the operator's Anthropic credit, so anything that
-# can reach them can spend money. Private services are reachable only from the
-# other services in this account, which is exactly the web app's relationship
-# to it. BACKEND_SHARED_SECRET is the second lock: if your plan has no private
-# services, change `type: pserv` to `type: web` below and the secret is what
-# keeps the deployment safe.
+# Both services are `web` and both are free, which has three consequences worth
+# knowing before you deploy rather than after:
 #
-# The database is Postgres rather than the SQLite file used in development,
-# because Render's filesystem is ephemeral — a deploy would otherwise delete
-# every user, course, and saved API key. The application picks its driver from
-# DATABASE_URL and needs no other change.
+#   1. Free services sleep when idle and take roughly a minute to wake. The
+#      first course generation after a quiet period will look like a hang.
+#   2. Free instances have 512 MB. That is enough for the generator and not
+#      enough for the generator plus Chroma, so semantic search is switched off
+#      here (VECTOR_SEARCH_DISABLED) and the slimmer requirements file is used.
+#      The application treats an unavailable vector store as normal and reads
+#      lessons directly, so this costs in-course search speed and nothing else.
+#   3. The generator is a PUBLIC web service, because private services are not
+#      part of the free tier. It has no user accounts and spends the operator's
+#      Anthropic credit, so BACKEND_SHARED_SECRET is not optional here — it is
+#      the only thing standing between the internet and your API bill.
+#
+# To move to paid later: set `plan: starter` on both, change the backend to
+# `type: pserv`, drop VECTOR_SEARCH_DISABLED, and point its buildCommand back at
+# requirements.txt.
 
 databases:
   - name: courseai-db
     databaseName: courseai
     user: courseai
-    # Free proves the deployment. It expires after 90 days and has no backups;
-    # move to a paid instance before this holds anything you would mind losing.
+    # Free Postgres expires and has no backups. Move to a paid instance before
+    # this holds anything you would mind losing.
     plan: free
 
 services:
   # ── The Python generator ───────────────────────────────────────────────────
-  - type: pserv
+  - type: web
     name: courseai-backend
     runtime: python
-    plan: starter
+    plan: free
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    # One worker: generation is long and mostly spent waiting on the model, so
-    # a second worker competes for memory rather than adding throughput.
+    # The slim requirements: no chromadb, so no onnxruntime and no embedding
+    # model competing for 512 MB.
+    buildCommand: pip install -r requirements-lite.txt
+    # One worker. Generation is long and mostly spent waiting on the model, so a
+    # second worker competes for memory rather than adding throughput — and on
+    # a free instance memory is the binding constraint.
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
 
-      # Must match the web service's copy. Render generates it once and copies
-      # it to both through the fromService reference below.
+      # Not optional on this plan: the service is publicly reachable, and this
+      # is what rejects everything that is not the web app. Render generates it
+      # once and copies it to the web service below.
       - key: BACKEND_SHARED_SECRET
         generateValue: true
+
+      # See the note at the top. Without this, the first /health request imports
+      # the whole Chroma stack to answer a question about it.
+      - key: VECTOR_SEARCH_DISABLED
+        value: "1"
 
       # The operator's fallback key. A user who saves their own in Settings
       # overrides it per request; without it, only those users can generate.
       - key: ANTHROPIC_API_KEY
         sync: false
 
+      # Haiku on the free tier: it is the fastest and cheapest, which matters
+      # most where the instance sleeps and the clock is already against you.
       - key: COURSE_MODEL
         value: claude-haiku-4-5-20251001
 
@@ -59,7 +77,7 @@ services:
   - type: web
     name: courseai-web
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /
@@ -73,12 +91,12 @@ services:
           name: courseai-db
           property: connectionString
 
-      # The backend's address inside Render's network. This resolves to
-      # `host:port` with no scheme, which is why the application normalises it
-      # in src/lib/backend-url.ts rather than assuming a URL.
+      # The backend's address. Rendered as `host:port` with no scheme, which is
+      # why the application normalises it in src/lib/backend-url.ts rather than
+      # assuming a URL.
       - key: PYTHON_BACKEND_URL
         fromService:
-          type: pserv
+          type: web
           name: courseai-backend
           property: hostport
 
@@ -86,7 +104,7 @@ services:
       # anyone copying a secret by hand.
       - key: BACKEND_SHARED_SECRET
         fromService:
-          type: pserv
+          type: web
           name: courseai-backend
           envVarKey: BACKEND_SHARED_SECRET
 

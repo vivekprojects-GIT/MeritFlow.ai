@@ -32,8 +32,28 @@ class VectorStoreUnavailable(RuntimeError):
     """Raised when chromadb is not installed or the store cannot be opened."""
 
 
+def _disabled() -> bool:
+    """Whether semantic search is switched off for this deployment.
+
+    Chroma brings onnxruntime and a local embedding model with it, which is a
+    few hundred megabytes resident. That is unremarkable on a workstation and
+    fatal on a 512 MB instance, where it competes with the generator for the
+    memory that actually writes courses.
+
+    So it can be turned off outright, rather than merely left unused: without
+    this the first call to /health imports the whole stack to answer a question
+    about it. The application already treats an unavailable vector store as a
+    normal condition and reads lessons directly instead, so the cost of
+    switching it off is slower in-course search, not a broken feature.
+    """
+    return os.getenv("VECTOR_SEARCH_DISABLED", "").strip().lower() in {"1", "true", "yes"}
+
+
 @lru_cache(maxsize=1)
 def _collection() -> Any:
+    if _disabled():
+        raise VectorStoreUnavailable("Semantic search is disabled (VECTOR_SEARCH_DISABLED).")
+
     try:
         import chromadb  # imported lazily: optional dependency
     except ImportError as err:  # pragma: no cover - depends on the environment

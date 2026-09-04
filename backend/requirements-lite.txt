@@ -1,0 +1,24 @@
+# The backend without semantic search.
+#
+# For memory-constrained deployments — a 512 MB free instance, say — where the
+# generator and Chroma cannot both fit. Chroma ships onnxruntime and a local
+# embedding model, several hundred megabytes resident, and losing them costs
+# in-course semantic search and nothing else: the application already treats an
+# unavailable vector store as normal and reads lessons directly instead.
+#
+# Use with VECTOR_SEARCH_DISABLED=1, so nothing attempts the import that is no
+# longer satisfiable.
+#
+# Everything here is identical to requirements.txt minus chromadb. Keep the two
+# in step when you change a version.
+
+fastapi>=0.135.1
+uvicorn[standard]>=0.41.0
+langgraph>=1.0.8,<1.1.0
+langgraph-checkpoint>=3.0.1,<5.0.0
+langchain-anthropic>=1.5.1
+pydantic>=2.12.5
+
+# Required by the upload routes. FastAPI raises at import time without it, not
+# at request time, so the whole backend refuses to start when it is missing.
+python-multipart>=0.0.20

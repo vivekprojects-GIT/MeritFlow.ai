@@ -10,14 +10,29 @@ fastest path is a Blueprint rather than creating services by hand.
 | Service | Render type | Why |
 |---|---|---|
 | `courseai-web` | Web Service | The Next app. Has API routes and server rendering, so not a Static Site. |
-| `courseai-backend` | **Private** Service | FastAPI + LangGraph. Writes the courses. |
+| `courseai-backend` | Web Service | FastAPI + LangGraph. Writes the courses. |
 | `courseai-db` | Postgres | Users, courses, goals, saved API keys. |
 
-**The backend is private on purpose.** Its `/generate-course` endpoints have no
-user accounts and spend the operator's Anthropic credit, so anything that can
-reach them can spend money. If your plan has no private services, change
-`type: pserv` to `type: web` in `render.yaml` — `BACKEND_SHARED_SECRET` is what
-keeps it safe either way, and both services get the same value automatically.
+`render.yaml` is currently configured for the **free tier**: both services are
+`web` and `plan: free`, because private services are not part of it.
+
+**That makes `BACKEND_SHARED_SECRET` load-bearing, not optional.** The generator
+is publicly reachable, has no user accounts, and spends the operator's Anthropic
+credit — so the secret is the only thing between the internet and your API bill.
+Render generates it once and copies it to both services; nothing to do by hand,
+but do not remove it.
+
+### Moving to paid later
+
+Four edits in `render.yaml`, and the deployment gets stronger on each:
+
+1. `plan: free` → `plan: starter` on both services — no more sleeping.
+2. `type: web` → `type: pserv` on `courseai-backend` — unreachable from the
+   internet, and the secret becomes defence in depth rather than the only
+   defence. Change `type: web` to `type: pserv` in the web service's
+   `PYTHON_BACKEND_URL` and `BACKEND_SHARED_SECRET` references too.
+3. Drop `VECTOR_SEARCH_DISABLED` — semantic in-course search comes back.
+4. `requirements-lite.txt` → `requirements.txt` in the backend's build command.
 
 ---
 
@@ -62,7 +77,27 @@ Postgres semantics, which `src/lib/db-postgres.test.ts` checks on every run.
 new sign-ups, no courses. There is no migration path written for moving a
 development SQLite file into Postgres, and you probably do not want one.
 
-### 3. There is no persistent disk
+### 3. Free instances sleep, and have 512 MB
+
+Two consequences the blueprint already works around, both worth understanding:
+
+**Sleeping.** A free service stops when idle and takes roughly a minute to wake.
+Generation already takes 6–10 minutes, so the first course after a quiet period
+can look like a hang when it is a cold start. The web app waking the sleeping
+backend adds a second cold start on top.
+
+**Memory.** ChromaDB brings onnxruntime and a local embedding model — a few
+hundred megabytes resident — which does not fit alongside the generator in
+512 MB. So the free configuration sets `VECTOR_SEARCH_DISABLED=1` and installs
+`requirements-lite.txt`, which omits chromadb entirely.
+
+What that costs is in-course semantic search. The application already treats an
+unavailable vector store as a normal condition and reads lessons directly
+instead, so the assistant still answers questions — it just reads rather than
+retrieves. Nothing else changes, and nothing is lost permanently: the index
+rebuilds from the `courses` table whenever you turn it back on.
+
+### 4. There is no persistent disk
 
 Anything written to the filesystem is gone on the next deploy. Two features
 touch it:
@@ -88,7 +123,7 @@ touch it:
 | `ANTHROPIC_API_KEY` | you | no* | Fallback for users who save no key of their own. |
 | `YOUTUBE_API_KEY` | you | no | Lesson videos. Without it, video search falls back to SerpAPI. |
 | `SERPAPI_API_KEY` | you | no | Course cover art, and video search when there is no YouTube key. |
-| `PGPOOL_MAX` | you | no | Postgres connections. Default 10. |
+| `PGPOOL_MAX` | you | no | Postgres connections. Default 10. Free Postgres has few; leave it. |
 | `PGSSL_STRICT` | you | no | Set to `1` only where the certificate chain verifies. |
 
 \* Not required in the sense that the app boots and runs without it — but no
@@ -101,6 +136,7 @@ one can generate a course unless they save their own key in Settings.
 | `ANTHROPIC_API_KEY` | you | no* | Same key, same caveat. |
 | `BACKEND_SHARED_SECRET` | Render | yes | Generated here, copied to the web service. |
 | `COURSE_MODEL` | `render.yaml` | no | Default model. Users override per request. |
+| `VECTOR_SEARCH_DISABLED` | `render.yaml` | no | `1` on free. Stops the Chroma import that will not fit in 512 MB. |
 | `PYTHON_VERSION` | `render.yaml` | yes | 3.12. |
 
 ---
@@ -122,9 +158,8 @@ one can generate a course unless they save their own key in Settings.
 
 - **Backups.** The free Postgres plan has none and expires after 90 days. Move
   to a paid instance before this holds anything real.
-- **Free-tier spin-down.** A free web service sleeps when idle and takes ~50
-  seconds to wake. Course generation already takes minutes, so the first
-  request after a sleep can look like a hang.
+- **Free-tier spin-down.** Covered above; the practical effect is that the
+  first request after a quiet period pays two cold starts, one per service.
 - **Scaling past one instance.** Nothing here forbids it, but the vector index
   is per-instance and would be rebuilt separately on each.
 - **A staging environment.** One blueprint, one environment. Render's preview

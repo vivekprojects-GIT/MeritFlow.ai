@@ -134,8 +134,10 @@ npm run lint
 ## Deploying
 
 See **[DEPLOY.md](DEPLOY.md)**. `render.yaml` is a Render Blueprint that creates
-the Postgres database, the private Python backend, and the web service, and
-wires them together.
+the Postgres database, the Python backend, and the web service, and wires them
+together. It is configured for the free tier, which means both services sleep
+when idle and semantic search is switched off to fit 512 MB — DEPLOY.md lists
+the four edits that undo both once you are on a paid plan.
 
 Three things it exists to get right:
 
