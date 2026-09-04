@@ -1,0 +1,112 @@
+# MeritFlow on Render — a web app, a private generator, and a database.
+#
+# Apply with Blueprints: New → Blueprint, pointed at this repository. Everything
+# below is created and wired automatically except the values marked
+# `sync: false`, which Render prompts for once.
+#
+# ── Why it is shaped this way ────────────────────────────────────────────────
+#
+# The Python backend is a PRIVATE service. Its /generate-course endpoints have
+# no user accounts and spend the operator's Anthropic credit, so anything that
+# can reach them can spend money. Private services are reachable only from the
+# other services in this account, which is exactly the web app's relationship
+# to it. BACKEND_SHARED_SECRET is the second lock: if your plan has no private
+# services, change `type: pserv` to `type: web` below and the secret is what
+# keeps the deployment safe.
+#
+# The database is Postgres rather than the SQLite file used in development,
+# because Render's filesystem is ephemeral — a deploy would otherwise delete
+# every user, course, and saved API key. The application picks its driver from
+# DATABASE_URL and needs no other change.
+
+databases:
+  - name: courseai-db
+    databaseName: courseai
+    user: courseai
+    # Free proves the deployment. It expires after 90 days and has no backups;
+    # move to a paid instance before this holds anything you would mind losing.
+    plan: free
+
+services:
+  # ── The Python generator ───────────────────────────────────────────────────
+  - type: pserv
+    name: courseai-backend
+    runtime: python
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # One worker: generation is long and mostly spent waiting on the model, so
+    # a second worker competes for memory rather than adding throughput.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+
+      # Must match the web service's copy. Render generates it once and copies
+      # it to both through the fromService reference below.
+      - key: BACKEND_SHARED_SECRET
+        generateValue: true
+
+      # The operator's fallback key. A user who saves their own in Settings
+      # overrides it per request; without it, only those users can generate.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      - key: COURSE_MODEL
+        value: claude-haiku-4-5-20251001
+
+  # ── The Next.js app ────────────────────────────────────────────────────────
+  - type: web
+    name: courseai-web
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+
+      # Supplied by the database above; never set by hand.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: courseai-db
+          property: connectionString
+
+      # The backend's address inside Render's network. This resolves to
+      # `host:port` with no scheme, which is why the application normalises it
+      # in src/lib/backend-url.ts rather than assuming a URL.
+      - key: PYTHON_BACKEND_URL
+        fromService:
+          type: pserv
+          name: courseai-backend
+          property: hostport
+
+      # The same generated value the backend holds, so the two agree without
+      # anyone copying a secret by hand.
+      - key: BACKEND_SHARED_SECRET
+        fromService:
+          type: pserv
+          name: courseai-backend
+          envVarKey: BACKEND_SHARED_SECRET
+
+      # Unwraps the API keys users save in Settings.
+      #
+      # This MUST be set and MUST NOT change. Without it the app generates a key
+      # file at runtime, that file dies with the container, and every key any
+      # user saved becomes permanently unreadable — silently, on the next
+      # deploy. Generated once by Render and then left alone.
+      - key: CREDENTIAL_SECRET
+        generateValue: true
+
+      # The operator's fallback key, same as the backend's. Set both.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # Optional. Video lookups prefer YouTube and fall back to SerpAPI; cover
+      # art is SerpAPI only. With neither, courses arrive without videos or
+      # covers — degraded, not broken.
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false

@@ -1,0 +1,15 @@
+fastapi>=0.135.1
+uvicorn[standard]>=0.41.0
+langgraph>=1.0.8,<1.1.0
+langgraph-checkpoint>=3.0.1,<5.0.0
+langchain-anthropic>=1.5.1
+pydantic>=2.12.5
+
+# Required by the upload routes. FastAPI raises at import time without it, not
+# at request time, so the whole backend refuses to start when it is missing.
+python-multipart>=0.0.20
+
+# Vector memory for semantic retrieval over course text.
+# Ships its own local embedding model (all-MiniLM-L6-v2 via onnxruntime),
+# so retrieval needs no extra API key.
+chromadb>=1.0.0

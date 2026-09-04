@@ -1,0 +1,25 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    The app icon: the mark in white on the brand field.
+
+    Literal hex rather than CSS variables, because a favicon is rendered by the
+    browser chrome outside the page, where the stylesheet does not reach. These
+    are --color-accent and --color-accent-strong, kept in step by hand.
+
+    The mark is scaled up relative to the logo component: an icon at 16px in a
+    tab needs less padding than a mark sitting in a page, or the bars vanish.
+  -->
+  <defs>
+    <linearGradient id="m" x1="4" y1="28" x2="28" y2="4" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f9161"/>
+      <stop offset="1" stop-color="#2f6b3f"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="9" fill="url(#m)"/>
+  <g fill="#ffffff">
+    <rect x="7"  y="19.5" width="3.6" height="6"    rx="1.8"/>
+    <rect x="12" y="15.4" width="3.6" height="10.1" rx="1.8"/>
+    <rect x="17" y="10.6" width="3.6" height="14.9" rx="1.8"/>
+    <rect x="22" y="6"    width="3.6" height="19.5" rx="1.8"/>
+  </g>
+</svg>

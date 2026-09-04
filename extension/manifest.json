@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "MeritFlow Autofill",
+  "version": "0.1.0",
+  "description": "Fills job applications from your MeritFlow profile. Never submits, never invents an answer.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "MeritFlow Autofill"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "128": "icon.png"
+  }
+}

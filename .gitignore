@@ -1,0 +1,86 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# Everything here would be permanently public if committed. Treat an accidental
+# commit as a compromised key: rotate it, do not merely delete the file.
+
+# Local secrets. `.env.example` is the documented template and carries no
+# values, so it is deliberately excepted.
+.env*
+!.env.example
+
+# Unwraps every API key users save in Settings. With this file and a copy of
+# the database, all of them are readable.
+/.credential-key
+
+*.pem
+*.key
+!**/public/**/*.key
+
+# ── Databases ────────────────────────────────────────────────────────────────
+# These hold real accounts, courses and encrypted credentials.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/courseai.db*
+/test-*.db*
+/backend/data/
+
+# The PGlite era. Single-process directories, never openable twice.
+/pgdata
+/pgdata.*
+
+# ── Dependencies and build output ────────────────────────────────────────────
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+/.next/
+/out/
+/build
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+
+# Python: the virtual environment is 400 MB of installed packages that
+# `pip install -r requirements.txt` reproduces exactly.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ── Local machine state ──────────────────────────────────────────────────────
+# Logs, tool caches and browser profiles. A browser profile in particular can
+# carry live session cookies.
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.dev.*.log
+.codex*
+/.playwright-mcp/
+/.hyperresearch/
+/research/
+
+# ChromaDB vector memory. Local, and rebuildable from the courses table.
+#
+# Unanchored on purpose: the backend writes its own copy under backend/, and a
+# leading slash matched only the one at the root. The other went into the first
+# commit as 4.8 MB of binary index.
+chroma-data/
+
+# Screenshots and DOM snapshots captured from real job applications.
+artifacts/
+
+.DS_Store

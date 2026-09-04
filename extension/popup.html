@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --ink: #1d1d1f;
+        --muted: #6e6e73;
+        --faint: #86868b;
+        --line: #e8e8ed;
+        --accent: #3f7d4e;
+        --warn: #b25000;
+        --canvas: #fff;
+        --surface: #fbfbfd;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #ececf0;
+          --muted: #9a9daa;
+          --faint: #7b7d87;
+          --line: #2a2c34;
+          --accent: #6aab7c;
+          --canvas: #17171b;
+          --surface: #111217;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        width: 340px;
+        margin: 0;
+        padding: 14px;
+        background: var(--surface);
+        color: var(--ink);
+        font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: -0.01em; }
+      p.sub { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+      button {
+        width: 100%;
+        padding: 9px 12px;
+        border: 0;
+        border-radius: 9px;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-weight: 650;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.5; cursor: default; }
+      button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 500; }
+      input {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--canvas);
+        color: var(--ink);
+        font: inherit;
+        margin-bottom: 8px;
+      }
+      .row { display: flex; gap: 6px; margin-top: 8px; }
+      .note { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--canvas); border: 1px solid var(--line); font-size: 12px; }
+      ul { margin: 6px 0 0; padding-left: 16px; }
+      li { margin-bottom: 3px; color: var(--muted); }
+      li b { color: var(--ink); font-weight: 600; }
+      .ok { color: var(--accent); font-weight: 650; }
+      .warn { color: var(--warn); font-weight: 650; }
+      .hint { margin-top: 10px; color: var(--faint); font-size: 11px; line-height: 1.45; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>MeritFlow Autofill</h1>
+    <p class="sub">Fills what your profile can answer. Never submits.</p>
+
+    <div id="setup" class="hidden">
+      <input id="origin" placeholder="http://localhost:3000" />
+      <input id="token" placeholder="Connection token from Settings" />
+      <button id="save">Connect</button>
+      <p class="hint">Settings → Application email → Browser extension. The token is separate from your login and can be rotated at any time.</p>
+    </div>
+
+    <div id="main" class="hidden">
+      <button id="fill">Fill this application</button>
+      <div class="row"><button id="forget" class="ghost">Disconnect</button></div>
+      <div id="result" class="note hidden"></div>
+      <p class="hint">Review everything before you submit. Fields it could not answer are outlined in amber.</p>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
